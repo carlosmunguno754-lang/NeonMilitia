@@ -1,0 +1,52 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+
+    # ESTE PASSO É A CORREÇÃO MÁGICA: Instala o SDK e aceita as licenças antes do Buildozer!
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Install buildozer dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y git zip unzip openjdk-11-jdk
+        pip install --upgrade pip
+        pip install buildozer
+
+    - name: Build with Buildozer
+      run: |
+        buildozer init
+        
+        # Diz ao Buildozer para usar o SDK que acabamos de instalar e aceitar as licenças
+        echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
+        echo "android.accept_sdk_license = True" >> buildozer.spec
+
+        # Ajustar o resto das configurações
+        sed -i 's/package.domain = org.test/package.domain = com.neon.militia/' buildozer.spec
+        sed -i 's/package.name = myapp/package.name = NeonMilitia/' buildozer.spec
+        sed -i 's/main.py/main_v9.py/' buildozer.spec
+        sed -i 's/requirements = python3,kivy/requirements = python3,kivy,kivy-deps.sdl2,kivy-deps.gstreamer/' buildozer.spec
+
+        # Iniciar a compilação
+        buildozer android debug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: NeonMilitia-APK
+        path: bin/*.apk
