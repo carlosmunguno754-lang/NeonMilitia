@@ -1,3 +1,4 @@
+
 name: Build APK
 
 on:
@@ -17,32 +18,41 @@ jobs:
       with:
         python-version: '3.9'
 
-    # ESTE PASSO É A CORREÇÃO MÁGICA: Instala o SDK e aceita as licenças antes do Buildozer!
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Install buildozer dependencies
+    - name: Accept SDK and build with Buildozer
       run: |
+        # 1. Instalar ferramentas básicas
         sudo apt update
-        sudo apt install -y git zip unzip openjdk-11-jdk
+        sudo apt install -y git zip unzip openjdk-11-jdk wget
         pip install --upgrade pip
         pip install buildozer
 
-    - name: Build with Buildozer
-      run: |
-        buildozer init
-        
-        # Diz ao Buildozer para usar o SDK que acabamos de instalar e aceitar as licenças
-        echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
-        echo "android.accept_sdk_license = True" >> buildozer.spec
+        # 2. Baixar, instalar e aceitar as licenças do Android SDK (FORA do Buildozer)
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip commandlinetools-linux-9477386_latest.zip
+        mkdir -p $HOME/android-sdk/cmdline-tools
+        mv cmdline-tools $HOME/android-sdk/cmdline-tools/latest
 
-        # Ajustar o resto das configurações
+        export ANDROID_HOME=$HOME/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+
+        # Força a aceitação da licença
+        yes | sdkmanager --licenses || true
+
+        # Força a instalação dos Build-Tools (para garantir que o 'aidl' existe)
+        sdkmanager "build-tools;34.0.0" || true
+
+        # 3. Agora sim, configurar o Buildozer APENAS com o caminho do SDK acima
+        buildozer init
         sed -i 's/package.domain = org.test/package.domain = com.neon.militia/' buildozer.spec
         sed -i 's/package.name = myapp/package.name = NeonMilitia/' buildozer.spec
         sed -i 's/main.py/main_v9.py/' buildozer.spec
         sed -i 's/requirements = python3,kivy/requirements = python3,kivy,kivy-deps.sdl2,kivy-deps.gstreamer/' buildozer.spec
 
-        # Iniciar a compilação
+        # Diz ao Buildozer para usar o SDK que acabamos de instalar e NÃO tentar baixar nada
+        echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
+        echo "android.sdk_manager_tool = sdkmanager" >> buildozer.spec
+
+        # Compilar!
         buildozer android debug
 
     - name: Upload APK
