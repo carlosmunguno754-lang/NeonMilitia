@@ -3,7 +3,7 @@ name: Build APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ principal ]
 
 jobs:
   build:
@@ -39,7 +39,7 @@ jobs:
         yes | sdkmanager --licenses || true
 
         # Força a instalação dos Build-Tools (para garantir que o 'aidl' existe)
-        sdkmanager "build-tools;34.0.0" || true
+        sdkmanager "build-tools;37.0.0" || true
 
         # 3. Agora sim, configurar o Buildozer APENAS com o caminho do SDK acima
         buildozer init
